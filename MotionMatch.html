@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Lady Beetle Motion Match</title>
+<style>
+  :root {
+    --bg:#f4f6f8; --panel:#ffffff; --ink:#14212b; --muted:#607080; --line:#d9e0e6;
+    --accent:#245b7a; --accent2:#dbeaf3; --target:#1b6f8a; --player:#a33d2d; --good:#1d7a45;
+    --warn:#a66b00; --shadow:0 8px 24px rgba(20,33,43,.10);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+  button{font:inherit}
+  .app{max-width:1280px;margin:0 auto;padding:18px}
+  .topbar{display:flex;gap:16px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;margin-bottom:14px}
+  .title-wrap h1{margin:0;font-size:clamp(24px,3vw,38px);line-height:1.05}
+  .title-wrap p{margin:6px 0 0;color:var(--muted);font-size:15px}
+  .hud{display:grid;grid-template-columns:repeat(3,minmax(112px,1fr));gap:8px;min-width:min(100%,390px)}
+  .hud-card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:9px 12px;box-shadow:0 3px 10px rgba(20,33,43,.05)}
+  .hud-label{display:block;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.07em}
+  .hud-value{display:block;font-size:23px;font-weight:750;margin-top:2px}
+  .statusbar{background:#fff;border:1px solid var(--line);border-radius:12px;padding:10px 14px;margin-bottom:14px;display:flex;gap:12px;justify-content:space-between;align-items:center;flex-wrap:wrap}
+  .status-main{font-weight:700}.status-sub{color:var(--muted);font-size:14px}
+  .timer{font-variant-numeric:tabular-nums;font-weight:800;font-size:20px}
+  .game-grid{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(360px,.85fr);gap:14px;align-items:stretch}
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:14px;box-shadow:var(--shadow);min-width:0}
+  .panel h2{margin:0 0 4px;font-size:18px}.panel-note{margin:0 0 8px;color:var(--muted);font-size:13px}
+  .graph-stage{position:relative;min-height:440px;display:flex;flex-direction:column;justify-content:center}
+  canvas{display:block;width:100%;height:auto;border:1px solid #ccd5dc;border-radius:10px;background:#fff}
+  .hidden{display:none!important}
+  .cover{position:absolute;inset:44px 14px 14px;border-radius:10px;background:linear-gradient(135deg,#eef3f6,#e6edf1);border:1px dashed #aebbc4;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;color:#4b5f6d;font-weight:700;font-size:20px}
+  .results-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .result-card h3{font-size:14px;margin:0 0 6px}.result-card canvas{height:auto}
+  .track-wrap{display:flex;flex-direction:column;min-height:440px}
+  .track-svg{width:100%;height:auto;min-height:260px;touch-action:none;user-select:none;border:1px solid #ccd5dc;border-radius:10px;background:linear-gradient(#fff,#fbfcfd)}
+  .track-help{color:var(--muted);font-size:13px;margin:8px 2px 0;line-height:1.35}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;margin-top:auto;padding-top:12px}
+  .btn{border:none;border-radius:10px;padding:11px 15px;background:var(--accent);color:#fff;font-weight:750;cursor:pointer;min-height:44px}
+  .btn.secondary{background:#e9eef2;color:#183240;border:1px solid #cbd5dc}
+  .btn.good{background:var(--good)}
+  .btn:disabled{opacity:.48;cursor:not-allowed}
+  .move-btn{flex:1 1 120px}
+  .center-actions{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:12px}
+  .score-box{border:1px solid var(--line);border-radius:12px;margin-top:10px;padding:12px;background:#fafcfd}
+  .score-big{font-size:34px;font-weight:850}.score-break{display:flex;gap:18px;flex-wrap:wrap;color:var(--muted);font-size:13px;margin-top:4px}
+  .progress{height:8px;border-radius:999px;background:#e6ebef;overflow:hidden;flex:1;min-width:160px}
+  .progress > div{height:100%;background:var(--accent);width:0%}
+  .intro{padding:18px 12px;text-align:center}
+  .intro h2{font-size:26px;margin:6px 0 8px}.intro p{max-width:720px;margin:8px auto;color:var(--muted);line-height:1.45}
+  .how{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:16px auto;max-width:850px;text-align:left}
+  .how div{border:1px solid var(--line);border-radius:12px;padding:10px;background:#fff}
+  .how b{display:block;margin-bottom:3px}
+  .final-banner{padding:18px;border-radius:14px;background:#f1f7f3;border:1px solid #bad8c4;text-align:center;margin-top:12px}
+  .final-banner strong{font-size:34px;display:block;margin:2px 0}
+  .kbd{font-family:ui-monospace,Consolas,monospace;background:#edf1f4;border:1px solid #cbd4da;padding:1px 5px;border-radius:5px}
+  @media(max-width:900px){.game-grid{grid-template-columns:1fr}.track-wrap{min-height:380px}.graph-stage{min-height:380px}.how{grid-template-columns:1fr 1fr}}
+  @media(max-width:560px){.app{padding:10px}.hud{grid-template-columns:repeat(3,1fr);min-width:100%}.hud-value{font-size:19px}.results-grid{grid-template-columns:1fr}.how{grid-template-columns:1fr}.graph-stage{min-height:320px}.track-wrap{min-height:330px}}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <div class="topbar">
+    <div class="title-wrap">
+      <h1>Lady Beetle Motion Match</h1>
+      <p>Study the graph. Hide it. Then move the beetle to recreate the motion from memory.</p>
+    </div>
+    <div class="hud" aria-label="Game score">
+      <div class="hud-card"><span class="hud-label">Round</span><span class="hud-value" id="roundHud">—</span></div>
+      <div class="hud-card"><span class="hud-label">Round Score</span><span class="hud-value" id="roundScoreHud">—</span></div>
+      <div class="hud-card"><span class="hud-label">Total</span><span class="hud-value" id="totalHud">0</span></div>
+    </div>
+  </div>
+
+  <div id="intro" class="panel intro">
+    <h2>10 Rounds. 100 Points Each.</h2>
+    <p>Each graph shows <b>distance from the reference point</b> over time. You get 18 seconds to study it. Then the target disappears. Set the beetle's starting position from memory and recreate the motion as accurately as you can.</p>
+    <div class="how">
+      <div><b>1 · Study</b>You have 18 seconds. Read the starting distance from the graph, plus the direction changes, stops, and relative speed.</div>
+      <div><b>2 · Set Start</b>Place the beetle at the correct starting distance.</div>
+      <div><b>3 · Perform</b>Drag the beetle or use <span class="kbd">A</span>/<span class="kbd">D</span>.</div>
+      <div><b>4 · Score</b>Compare your graph to the target and build a total out of 1000.</div>
+    </div>
+    <button class="btn good" id="startGameBtn">Start Game</button>
+  </div>
+
+  <div id="game" class="hidden">
+    <div class="statusbar">
+      <div><div class="status-main" id="statusMain">Get ready.</div><div class="status-sub" id="statusSub">Round 1 of 10</div></div>
+      <div class="progress" aria-hidden="true"><div id="progressFill"></div></div>
+      <div class="timer" id="timerText">—</div>
+    </div>
+
+    <div class="game-grid">
+      <section class="panel graph-stage" aria-label="Graph area">
+        <h2 id="graphTitle">Reference Graph</h2>
+        <p class="panel-note" id="graphNote">Study this motion carefully.</p>
+        <canvas id="mainGraph" width="760" height="430" aria-label="Distance from reference point versus time graph"></canvas>
+        <div id="graphCover" class="cover hidden">Reference graph hidden.<br>Recreate it from memory.</div>
+        <div id="resultGraphs" class="results-grid hidden">
+          <div class="result-card"><h3>Target</h3><canvas id="targetGraph" width="560" height="330"></canvas></div>
+          <div class="result-card"><h3>Your Motion</h3><canvas id="studentGraph" width="560" height="330"></canvas></div>
+        </div>
+        <div id="scoreBox" class="score-box hidden" aria-live="polite">
+          <div class="score-big"><span id="scoreValue">0</span> / 100</div>
+          <div class="score-break"><span>Starting position: <b id="startScoreText">0</b></span><span>Motion match: <b id="motionScoreText">0</b></span><span>Mean error: <b id="maeText">0.00 m</b></span></div>
+        </div>
+      </section>
+
+      <section class="panel track-wrap" aria-label="Motion track">
+        <h2>Motion Track</h2>
+        <p class="panel-note">Reference point is at 0 m. Move the beetle left/right along the line.</p>
+        <svg id="track" class="track-svg" viewBox="0 0 760 320" role="img" aria-label="Five meter motion line with a movable lady beetle">
+          <defs>
+            <filter id="soft"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-opacity="0.18"/></filter>
+          </defs>
+          <rect x="30" y="38" width="700" height="230" rx="12" fill="#fbfcfd" stroke="#d4dde3"/>
+          <text x="46" y="72" font-size="17" font-weight="700" fill="#324a59">Reference Point</text>
+          <rect x="48" y="100" width="26" height="62" rx="4" fill="#314b5a"/>
+          <circle cx="61" cy="131" r="6" fill="#dce6eb"/>
+          <line x1="90" y1="214" x2="690" y2="214" stroke="#263d49" stroke-width="5" stroke-linecap="round"/>
+          <g id="ticks"></g>
+          <g id="bug" transform="translate(330 214)" filter="url(#soft)" style="cursor:grab">
+            <line x1="-17" y1="-10" x2="-28" y2="-23" stroke="#1b1b1b" stroke-width="4" stroke-linecap="round"/>
+            <line x1="17" y1="-10" x2="28" y2="-23" stroke="#1b1b1b" stroke-width="4" stroke-linecap="round"/>
+            <line x1="-18" y1="3" x2="-31" y2="7" stroke="#1b1b1b" stroke-width="4" stroke-linecap="round"/>
+            <line x1="18" y1="3" x2="31" y2="7" stroke="#1b1b1b" stroke-width="4" stroke-linecap="round"/>
+            <ellipse cx="0" cy="-16" rx="13" ry="11" fill="#191919"/>
+            <ellipse cx="0" cy="4" rx="29" ry="25" fill="#c84a3c" stroke="#872c24" stroke-width="3"/>
+            <line x1="0" y1="-18" x2="0" y2="28" stroke="#272727" stroke-width="3"/>
+            <circle cx="-11" cy="-3" r="5" fill="#1d1d1d"/><circle cx="13" cy="0" r="5" fill="#1d1d1d"/>
+            <circle cx="-14" cy="13" r="4.5" fill="#1d1d1d"/><circle cx="12" cy="15" r="4.5" fill="#1d1d1d"/>
+          </g>
+          <text id="distanceReadout" x="390" y="292" text-anchor="middle" font-size="21" font-weight="800" fill="#173443">2.00 m</text>
+        </svg>
+        <p class="track-help" id="trackHelp">During the performance, drag the beetle. Keyboard: <span class="kbd">A</span> or ← moves toward the reference point; <span class="kbd">D</span> or → moves away.</p>
+        <div class="controls">
+          <button class="btn secondary move-btn" id="towardBtn" disabled>← Toward</button>
+          <button class="btn secondary move-btn" id="awayBtn" disabled>Away →</button>
+          <button class="btn good" id="primaryBtn" disabled>Continue</button>
+          <button class="btn secondary" id="restartBtn">Restart</button>
+        </div>
+      </section>
+    </div>
+
+    <div id="finalBanner" class="final-banner hidden" aria-live="polite">
+      <span>Final Score</span><strong id="finalScore">0 / 1000</strong><div id="finalMessage">Write your score on the board.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const PREVIEW_MS = 18000;
+  const COUNTDOWN_MS = 2500;
+  const Y_MIN = 0;
+  const Y_MAX = 5;
+  const TRACK_MIN = 0;
+  const TRACK_MAX = 5;
+  const TRACK_X0 = 90;
+  const TRACK_X1 = 690;
+  const MOVE_SPEED = 0.82; // meters per second for keyboard/buttons
+
+  const scenarios = [
+    {name:'Warm-Up', pts:[[0,2.0],[2.5,3.0],[4.0,3.0],[6.5,2.0],[8.0,2.0],[10,2.8]]},
+    {name:'Quick Toward, Slow Away', pts:[[0,3.5],[2.0,2.0],[3.5,2.0],[6.5,3.2],[8.0,3.2],[10,2.5]]},
+    {name:'Two Speeds Away', pts:[[0,1.5],[3.0,2.5],[5.0,4.0],[6.5,4.0],[8.5,3.0],[10,3.5]]},
+    {name:'Turnaround', pts:[[0,2.5],[2.0,3.5],[4.0,2.7],[5.5,2.7],[7.5,1.3],[10,2.2]]},
+    {name:'Out and Back', pts:[[0,4.0],[2.5,2.8],[4.0,2.8],[6.0,3.8],[8.0,3.0],[10,3.0]]},
+    {name:'Speed Change', pts:[[0,1.2],[2.0,2.2],[4.0,2.2],[6.0,3.8],[8.5,2.4],[10,2.8]]},
+    {name:'Long Return', pts:[[0,3.0],[2.0,4.0],[4.5,2.5],[6.0,2.5],[8.0,1.5],[10,2.7]]},
+    {name:'Stop, Turn, Stop', pts:[[0,2.0],[1.5,2.8],[3.5,2.8],[5.5,4.1],[7.0,3.2],[8.5,3.2],[10,2.4]]},
+    {name:'Double Speed Change', pts:[[0,4.0],[2.0,3.4],[4.0,2.0],[5.5,2.0],[7.5,3.0],[9.0,4.0],[10,3.4]]},
+    {name:'Final Challenge', pts:[[0,2.5],[2.0,1.4],[3.5,1.4],[5.5,3.3],[7.0,2.6],[8.5,3.8],[10,3.0]]}
+  ];
+
+  const els = {
+    intro:document.getElementById('intro'), game:document.getElementById('game'), startGameBtn:document.getElementById('startGameBtn'),
+    roundHud:document.getElementById('roundHud'), roundScoreHud:document.getElementById('roundScoreHud'), totalHud:document.getElementById('totalHud'),
+    statusMain:document.getElementById('statusMain'), statusSub:document.getElementById('statusSub'), timerText:document.getElementById('timerText'), progressFill:document.getElementById('progressFill'),
+    graphTitle:document.getElementById('graphTitle'), graphNote:document.getElementById('graphNote'), mainGraph:document.getElementById('mainGraph'), graphCover:document.getElementById('graphCover'),
+    resultGraphs:document.getElementById('resultGraphs'), targetGraph:document.getElementById('targetGraph'), studentGraph:document.getElementById('studentGraph'), scoreBox:document.getElementById('scoreBox'),
+    scoreValue:document.getElementById('scoreValue'), startScoreText:document.getElementById('startScoreText'), motionScoreText:document.getElementById('motionScoreText'), maeText:document.getElementById('maeText'),
+    track:document.getElementById('track'), bug:document.getElementById('bug'), ticks:document.getElementById('ticks'), distanceReadout:document.getElementById('distanceReadout'), trackHelp:document.getElementById('trackHelp'),
+    towardBtn:document.getElementById('towardBtn'), awayBtn:document.getElementById('awayBtn'), primaryBtn:document.getElementById('primaryBtn'), restartBtn:document.getElementById('restartBtn'),
+    finalBanner:document.getElementById('finalBanner'), finalScore:document.getElementById('finalScore'), finalMessage:document.getElementById('finalMessage')
+  };
+
+  let round = 0, total = 0, phase = 'intro', beetlePos = 2, selectedStart = 2;
+  let phaseStart = 0, raf = null, performanceStart = 0, playerSamples = [], lastSampleAt = 0;
+  let dragging = false, moveDir = 0, lastFrame = 0;
+
+  function initTicks(){
+    let s='';
+    for(let m=0;m<=5;m++){
+      const x = TRACK_X0 + (TRACK_X1-TRACK_X0)*(m/5);
+      s += `<line x1="${x}" y1="202" x2="${x}" y2="228" stroke="#425d6b" stroke-width="2"/>`;
+      s += `<text x="${x}" y="252" text-anchor="middle" font-size="17" fill="#526a77">${m} m</text>`;
+    }
+    els.ticks.innerHTML=s;
+  }
+
+  function clamp(v,a,b){return Math.max(a,Math.min(b,v));}
+  function lerp(a,b,t){return a+(b-a)*t;}
+  function refAt(sc,t){
+    const p=sc.pts;
+    if(t<=p[0][0]) return p[0][1];
+    if(t>=p[p.length-1][0]) return p[p.length-1][1];
+    for(let i=0;i<p.length-1;i++){
+      if(t>=p[i][0] && t<=p[i+1][0]){
+        const u=(t-p[i][0])/(p[i+1][0]-p[i][0]); return lerp(p[i][1],p[i+1][1],u);
+      }
+    }
+    return p[p.length-1][1];
+  }
+  function xForPos(m){return TRACK_X0+(TRACK_X1-TRACK_X0)*(m/TRACK_MAX);}
+  function posForX(x){return clamp((x-TRACK_X0)/(TRACK_X1-TRACK_X0)*TRACK_MAX,TRACK_MIN,TRACK_MAX);}
+  function setBeetlePos(m){
+    beetlePos=clamp(m,TRACK_MIN,TRACK_MAX);
+    els.bug.setAttribute('transform',`translate(${xForPos(beetlePos)} 214)`);
+    els.distanceReadout.textContent=beetlePos.toFixed(2)+' m';
+  }
+
+  function drawGraph(canvas, mode, data){
+    const ctx=canvas.getContext('2d');
+    const W=canvas.width,H=canvas.height;
+    const pad={l:64,r:20,t:24,b:52};
+    const gx=pad.l, gy=pad.t, gw=W-pad.l-pad.r, gh=H-pad.t-pad.b;
+    ctx.clearRect(0,0,W,H); ctx.fillStyle='#fff';ctx.fillRect(0,0,W,H);
+    ctx.strokeStyle='#dbe2e7';ctx.lineWidth=1;
+    ctx.font='14px system-ui, sans-serif';ctx.fillStyle='#566c79';ctx.textAlign='center';ctx.textBaseline='top';
+    for(let t=0;t<=10;t++){
+      const x=gx+gw*(t/10); ctx.beginPath();ctx.moveTo(x,gy);ctx.lineTo(x,gy+gh);ctx.stroke();
+      if(t%2===0) ctx.fillText(String(t),x,gy+gh+9);
+    }
+    ctx.textAlign='right';ctx.textBaseline='middle';
+    for(let m=0;m<=5;m++){
+      const y=gy+gh*(1-(m-Y_MIN)/(Y_MAX-Y_MIN));ctx.beginPath();ctx.moveTo(gx,y);ctx.lineTo(gx+gw,y);ctx.stroke();ctx.fillText(String(m),gx-9,y);
+    }
+    ctx.strokeStyle='#344d5b';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(gx,gy);ctx.lineTo(gx,gy+gh);ctx.lineTo(gx+gw,gy+gh);ctx.stroke();
+    ctx.fillStyle='#304a58';ctx.textAlign='center';ctx.textBaseline='alphabetic';ctx.font='600 15px system-ui, sans-serif';ctx.fillText('Time (s)',gx+gw/2,H-10);
+    ctx.save();ctx.translate(17,gy+gh/2);ctx.rotate(-Math.PI/2);ctx.fillText('Distance from Reference Point (m)',0,0);ctx.restore();
+    function px(t){return gx+gw*(t/10)} function py(m){return gy+gh*(1-(m-Y_MIN)/(Y_MAX-Y_MIN))}
+    if(mode==='reference'){
+      ctx.strokeStyle='#1b6f8a';ctx.lineWidth=5;ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();
+      data.pts.forEach((p,i)=>{if(i===0)ctx.moveTo(px(p[0]),py(p[1]));else ctx.lineTo(px(p[0]),py(p[1]));});ctx.stroke();
+      ctx.fillStyle='#1b6f8a';data.pts.forEach(p=>{ctx.beginPath();ctx.arc(px(p[0]),py(p[1]),4.5,0,Math.PI*2);ctx.fill();});
+    } else if(mode==='player'){
+      if(data.length){ctx.strokeStyle='#a33d2d';ctx.lineWidth=5;ctx.lineJoin='round';ctx.lineCap='round';ctx.beginPath();data.forEach((p,i)=>{if(i===0)ctx.moveTo(px(p[0]),py(p[1]));else ctx.lineTo(px(p[0]),py(p[1]));});ctx.stroke();}
+    }
+  }
+
+  function cancelAnim(){if(raf){cancelAnimationFrame(raf);raf=null;}}
+  function setMoveEnabled(on){els.towardBtn.disabled=!on;els.awayBtn.disabled=!on;}
+  function updateHud(){els.roundHud.textContent=(phase==='intro')?'—':`${round+1}/10`;els.totalHud.textContent=String(total);}
+
+  function startGame(){
+    round=0;total=0;phase='preview';els.intro.classList.add('hidden');els.game.classList.remove('hidden');els.finalBanner.classList.add('hidden');
+    beginPreview();
+  }
+  function beginPreview(){
+    cancelAnim(); phase='preview'; updateHud(); els.roundScoreHud.textContent='—'; els.scoreBox.classList.add('hidden'); els.resultGraphs.classList.add('hidden'); els.mainGraph.classList.remove('hidden'); els.graphCover.classList.add('hidden');
+    els.graphTitle.textContent='Reference Graph';els.graphNote.textContent='Study the starting distance, stops, direction changes, and relative speed.';
+    els.trackHelp.innerHTML='Study the <b>graph only</b>. The beetle is hidden during the preview so the starting position must be interpreted from the graph.';
+    const sc=scenarios[round]; drawGraph(els.mainGraph,'reference',sc);
+    // During study, do not reveal the starting position on the motion track.
+    els.bug.style.visibility='hidden';
+    els.distanceReadout.style.visibility='hidden';
+    setMoveEnabled(false);els.primaryBtn.disabled=true;els.primaryBtn.textContent='Continue';
+    els.statusMain.textContent=`Study: ${sc.name}`;els.statusSub.textContent=`Round ${round+1} of 10 · Target disappears in 18 seconds`;phaseStart=performance.now();
+    loopPreview();
+  }
+  function loopPreview(now=performance.now()){
+    const e=now-phaseStart;const rem=Math.max(0,PREVIEW_MS-e);els.timerText.textContent=(rem/1000).toFixed(1)+' s';els.progressFill.style.width=(100*e/PREVIEW_MS)+'%';
+    if(e>=PREVIEW_MS){beginSetStart();return;} raf=requestAnimationFrame(loopPreview);
+  }
+  function beginSetStart(){
+    cancelAnim();phase='setStart';selectedStart=scenarios[round].pts[0][1];
+    els.bug.style.visibility='visible';
+    els.distanceReadout.style.visibility='visible';
+    els.graphCover.classList.remove('hidden');els.graphTitle.textContent='Target Hidden';els.graphNote.textContent='Set the starting position from memory.';els.timerText.textContent='—';els.progressFill.style.width='0%';
+    // Give a neutral start so the student must actually place it.
+    setBeetlePos(2.5);setMoveEnabled(true);els.primaryBtn.disabled=false;els.primaryBtn.textContent='Lock Start & Go';
+    els.statusMain.textContent='Set your starting position';els.statusSub.textContent='Use the scale. The target start is hidden.';
+    els.trackHelp.innerHTML='Place the beetle at the starting distance you remember from the graph. Then lock the start and get ready to move.';
+  }
+  function beginCountdown(){
+    if(phase!=='setStart')return; selectedStart=beetlePos; phase='countdown';setMoveEnabled(false);els.primaryBtn.disabled=true;els.statusMain.textContent='Get ready to move';els.statusSub.textContent='The timer begins after the countdown.';phaseStart=performance.now();
+    loopCountdown();
+  }
+  function loopCountdown(now=performance.now()){
+    const e=now-phaseStart;const rem=Math.max(0,COUNTDOWN_MS-e);const n=Math.ceil(rem/1000);els.timerText.textContent=n>0?String(n):'GO';els.progressFill.style.width=(100*e/COUNTDOWN_MS)+'%';
+    if(e>=COUNTDOWN_MS){beginPerformance();return;} raf=requestAnimationFrame(loopCountdown);
+  }
+  function beginPerformance(){
+    cancelAnim();phase='perform';setMoveEnabled(true);els.primaryBtn.disabled=true;els.graphCover.classList.add('hidden');els.graphTitle.textContent='Your Graph';els.graphNote.textContent='Move the beetle. Your graph is being drawn live.';
+    playerSamples=[[0,beetlePos]];lastSampleAt=0;performanceStart=performance.now();lastFrame=performanceStart;drawGraph(els.mainGraph,'player',playerSamples);
+    els.statusMain.textContent='Perform the motion';els.statusSub.textContent='Drag the beetle, or use A/D or the movement buttons.';
+    els.trackHelp.innerHTML='During the performance, drag the beetle. Keyboard: <span class="kbd">A</span> or ← moves toward the reference point; <span class="kbd">D</span> or → moves away.';loopPerform(performanceStart);
+  }
+  function loopPerform(now){
+    const dt=(now-lastFrame)/1000;lastFrame=now;
+    if(moveDir!==0 && !dragging) setBeetlePos(beetlePos+moveDir*MOVE_SPEED*dt);
+    const t=(now-performanceStart)/1000;const rem=Math.max(0,10-t);els.timerText.textContent=rem.toFixed(1)+' s';els.progressFill.style.width=(Math.min(1,t/10)*100)+'%';
+    if(t-lastSampleAt>=0.05 || t>=10){playerSamples.push([Math.min(t,10),beetlePos]);lastSampleAt=t;drawGraph(els.mainGraph,'player',playerSamples);}
+    if(t>=10){finishRound();return;} raf=requestAnimationFrame(loopPerform);
+  }
+  function finishRound(){
+    cancelAnim();phase='results';moveDir=0;dragging=false;setMoveEnabled(false);els.primaryBtn.disabled=false;els.primaryBtn.textContent=(round===9)?'Finish Game':'Next Round';
+    if(playerSamples[playerSamples.length-1][0]<10)playerSamples.push([10,beetlePos]);
+    const sc=scenarios[round];const startErr=Math.abs(selectedStart-sc.pts[0][1]);const startScore=clamp(100-startErr*70,0,100);
+    let sum=0,count=0;
+    for(let t=0;t<=10;t+=0.1){
+      let p=playerSamples[0][1];
+      for(let i=0;i<playerSamples.length-1;i++){
+        const a=playerSamples[i],b=playerSamples[i+1];
+        if(t>=a[0]&&t<=b[0]){const u=(b[0]===a[0])?0:(t-a[0])/(b[0]-a[0]);p=lerp(a[1],b[1],u);break;}
+        if(t>b[0])p=b[1];
+      }
+      sum+=Math.abs(p-refAt(sc,t));count++;
+    }
+    const mae=sum/count;const motionScore=clamp(100-(mae/1.25)*100,0,100);const roundScore=Math.round(startScore*0.25+motionScore*0.75);
+    total+=roundScore;els.roundScoreHud.textContent=String(roundScore);els.totalHud.textContent=String(total);
+    els.mainGraph.classList.add('hidden');els.resultGraphs.classList.remove('hidden');els.scoreBox.classList.remove('hidden');drawGraph(els.targetGraph,'reference',sc);drawGraph(els.studentGraph,'player',playerSamples);
+    els.graphTitle.textContent='Round Results';els.graphNote.textContent='Compare the overall shape, direction changes, stops, and steepness.';
+    els.scoreValue.textContent=roundScore;els.startScoreText.textContent=Math.round(startScore)+'%';els.motionScoreText.textContent=Math.round(motionScore)+'%';els.maeText.textContent=mae.toFixed(2)+' m';
+    els.statusMain.textContent=`Round ${round+1} score: ${roundScore}/100`;els.statusSub.textContent='Target and your motion are shown side by side.';els.timerText.textContent='Done';els.progressFill.style.width='100%';
+  }
+  function advance(){
+    if(phase==='setStart'){beginCountdown();return;}
+    if(phase==='results'){
+      if(round===9){finishGame();} else {round++;beginPreview();}
+    }
+  }
+  function finishGame(){
+    phase='finished';els.primaryBtn.disabled=true;els.finalBanner.classList.remove('hidden');els.finalScore.textContent=`${total} / 1000`;
+    let msg='Write your score on the board. Highest total wins the candy.';
+    if(total>=900)msg='Motion Master. Put that score on the board.'; else if(total>=750)msg='Excellent graph matching. Put your total on the board.'; else if(total>=600)msg='Solid motion reading. Put your total on the board.';
+    els.finalMessage.textContent=msg;els.statusMain.textContent='Game complete';els.statusSub.textContent='Compare totals with the class.';
+  }
+  function resetGame(){
+    cancelAnim();moveDir=0;dragging=false;phase='intro';
+    els.bug.style.visibility='visible';
+    els.distanceReadout.style.visibility='visible';round=0;total=0;playerSamples=[];els.game.classList.add('hidden');els.intro.classList.remove('hidden');els.totalHud.textContent='0';els.roundHud.textContent='—';els.roundScoreHud.textContent='—';els.finalBanner.classList.add('hidden');setBeetlePos(2);
+  }
+
+  function pointerToPos(ev){
+    const r=els.track.getBoundingClientRect();const x=(ev.clientX-r.left)*(760/r.width);return posForX(x);
+  }
+  els.bug.addEventListener('pointerdown',ev=>{if(!(phase==='setStart'||phase==='perform'))return;dragging=true;els.bug.setPointerCapture(ev.pointerId);els.bug.style.cursor='grabbing';setBeetlePos(pointerToPos(ev));});
+  els.track.addEventListener('pointermove',ev=>{if(dragging)setBeetlePos(pointerToPos(ev));});
+  function endDrag(ev){if(!dragging)return;dragging=false;els.bug.style.cursor='grab';try{els.bug.releasePointerCapture(ev.pointerId);}catch(_){} }
+  els.track.addEventListener('pointerup',endDrag);els.track.addEventListener('pointercancel',endDrag);
+
+  function moveStart(dir){if(phase==='setStart'||phase==='perform')moveDir=dir;}
+  function moveStop(dir){if(moveDir===dir)moveDir=0;}
+  els.towardBtn.addEventListener('pointerdown',()=>moveStart(-1));els.towardBtn.addEventListener('pointerup',()=>moveStop(-1));els.towardBtn.addEventListener('pointerleave',()=>moveStop(-1));els.towardBtn.addEventListener('pointercancel',()=>moveStop(-1));
+  els.awayBtn.addEventListener('pointerdown',()=>moveStart(1));els.awayBtn.addEventListener('pointerup',()=>moveStop(1));els.awayBtn.addEventListener('pointerleave',()=>moveStop(1));els.awayBtn.addEventListener('pointercancel',()=>moveStop(1));
+  window.addEventListener('keydown',ev=>{if(ev.repeat)return;const k=ev.key.toLowerCase();if(k==='a'||ev.key==='ArrowLeft'){ev.preventDefault();moveStart(-1);}if(k==='d'||ev.key==='ArrowRight'){ev.preventDefault();moveStart(1);}if(ev.key==='Enter'&& !els.primaryBtn.disabled){advance();}});
+  window.addEventListener('keyup',ev=>{const k=ev.key.toLowerCase();if(k==='a'||ev.key==='ArrowLeft')moveStop(-1);if(k==='d'||ev.key==='ArrowRight')moveStop(1);});
+
+  els.startGameBtn.addEventListener('click',startGame);els.primaryBtn.addEventListener('click',advance);els.restartBtn.addEventListener('click',resetGame);
+  initTicks();setBeetlePos(2);els.bug.style.visibility='visible';els.distanceReadout.style.visibility='visible';
+})();
+</script>
+</body>
+</html>
